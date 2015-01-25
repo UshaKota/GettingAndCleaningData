@@ -8,7 +8,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="generator" content="pandoc" />
 
-<meta name="author" content="kc" />
+<meta name="author" content="UshaKota" />
 
 
 <title>run_analysis.R</title>
@@ -66,134 +66,6 @@ img {
 <h4 class="date"><em>Sun Jan 25 22:48:33 2015</em></h4>
 </div>
 
-
-<pre class="r"><code># run_anlysis.R script is developed as an assignment for Getting and Cleaning Data Course Project in Coursera
-# The script is expected to perform the foll. steps from the given data set :for data set refer to Coursera
-# course project
-
-# 1.Merges the training and the test sets to create one data set.
-# 2.Extracts only the measurements on the mean and standard deviation for each measurement.
-# 3.Uses descriptive activity names to name the activities in the data set
-# 4.Appropriately labels the data set with descriptive variable names.
-#
-# 5.From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
-
-###########################################################################################################
-# The run_analyis.R uses 2 utility functions for cleaning up the feature lables ref:: #4 above
-#         replace_all () -- that finds a specific occurrence of a string and replaces all such occurences
-#         with the replacement string
-#         features_to_table() a function that leverages on &quot;white spaces&quot; to split the features' names into columns'
-#       The script assumes that all the data files are in the current working directory
-############################################################################################################
-
-        library(plyr)
-        library(stringr)
-        library(stringi)</code></pre>
-<pre><code>## Warning: package 'stringi' was built under R version 3.1.2</code></pre>
-<pre class="r"><code>        library(dplyr)</code></pre>
-<pre><code>## Warning: package 'dplyr' was built under R version 3.1.2</code></pre>
-<pre><code>## 
-## Attaching package: 'dplyr'
-## 
-## The following objects are masked from 'package:plyr':
-## 
-##     arrange, count, desc, failwith, id, mutate, rename, summarise,
-##     summarize
-## 
-## The following object is masked from 'package:stats':
-## 
-##     filter
-## 
-## The following objects are masked from 'package:base':
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>        # utility function1 : to replace all occurences of a pattern and clean up the features.txt file and return the dataframe
-
-        replace_all &lt;- function(df, pattern, replacement) {
-                char &lt;- vapply(df, function(x) is.factor(x) || is.character(x), logical(1))
-                df[char] &lt;- lapply(df[char], str_replace_all, pattern, replacement)
-                return (df)
-
-        }
-        # utility function2 : to split the feature names by white spaces and then the
-        #split features' names are concatenated to form a single variable name
-        features_to_table &lt;- function(df,splitchar) {
-                return (stri_split_fixed(df[,2], splitchar, simplify = TRUE))
-        }
-
-        #make an activity table and add column names
-
-        actDT&lt;-read.table(&quot;activity_labels.txt&quot;,row.names=NULL,col.names=c(&quot;activity_id&quot;,&quot;activity&quot;))
-
-        #start creating the train data test data set with the acitvities performed and measurements captured
-
-        subDT_train&lt;-read.table(&quot;train//subject_train.txt&quot;,row.names=NULL, col.names=c(&quot;subject&quot;))
-        subDT_test&lt;-read.table(&quot;test//subject_test.txt&quot;,row.names=NULL,col.names=c(&quot;subject&quot;))
-        subjDataMerge&lt;-rbind(subDT_train,subDT_test)
-
-        #read the activity labels for the subjects
-        labelDT_train&lt;-read.table(&quot;train//y_train.txt&quot;,row.names=NULL,col.names=c(&quot;activity_id&quot;))
-        labelDT_test&lt;-read.table(&quot;test//y_test.txt&quot;,row.names=NULL,col.names=c(&quot;activity_id&quot;))
-        #merge train and test subjects' activities
-        ActTrnTstMerge&lt;-rbind(labelDT_train,labelDT_test)
-
-        #add the activity name to the  Train and Test subjects:-
-        #get the corresponding names from second column of activity data table &quot;actDT&quot;
-
-        ActTrnTstMerge$activityLbl&lt;-actDT[ActTrnTstMerge$activity_id,2]
-
-        #combine subject vs. activity tables
-        subActTbl&lt;-cbind(subjDataMerge,ActTrnTstMerge)
-
-        #now start reading the measurement data for training set and test sets
-
-        trnMesDT&lt;-read.table(&quot;train//X_train.txt&quot;)
-        testMesDT &lt;-read.table(&quot;test//X_test.txt&quot;)
-
-        #STEP1:
-
-        #merge the train and test measurement datasets and
-        #impose the column names from the tidied feature set
-        allMesDT&lt;-rbind(trnMesDT,testMesDT)
-
-        #STEP3:
-        #read the feature set a nd tidy the feature set
-        bigFeatureSet&lt;-read.table(&quot;features.txt&quot;)
-
-        #cleanup the variables in BigDf
-        tidyFeatureNames&lt;-replace_all(bigFeatureSet,&quot;BodyBody&quot;,&quot;Body&quot;)
-
-        tidyFeatureExpr&lt;-replace_all(tidyFeatureNames,'\\(|\\)|\\-', &quot; &quot;)
-        tidyFineTuneNames&lt;-replace_all(tidyFeatureExpr,'\\,',&quot; &quot;)
-
-        #break the variables by &quot;space&quot; char and distribute them to columns
-        tidyFeatureTbl&lt;-features_to_table(tidyFineTuneNames,&quot; &quot;)
-
-        #combine all cols now, single string variable names will be formed for e.g &quot;fbody mean X 12 34&quot;
-        tidyCols&lt;-do.call(paste, as.data.frame(tidyFeatureTbl, stringsAsFactors=FALSE))
-
-        #now remove the extra spaces so that we get &quot;fbodymeanX1234&quot;, now assume that all feature names are tidied
-        tidyAllFeatures&lt;-replace_all(tidyCols,&quot; &quot;,&quot;&quot;)
-
-        #STEP3,STEP4
-        colnames(allMesDT)&lt;-tidyAllFeatures
-
-        #merge the subject-activity and measurement data sets
-
-        tidyMesrmtTbl&lt;-cbind(subActTbl,allMesDT)
-
-        #STEP2:
-
-        #subset for columns with mean and std in their names
-        #for all subjects with their corresponding activities
-        fewrMesTbl&lt;-subset(tidyMesrmtTbl, select = grepl(&quot;subject|Lbl|mean|std&quot;, names(tidyMesrmtTbl)))
-
-        #STEP5
-        #compute measurements' mean for each subject for each activity performed
-        subActWiseMeanData&lt;-ddply(fewrMesTbl, c( &quot;activityLbl&quot;,&quot;subject&quot;), numcolwise(mean))
-
-        #write the data to a txt file with write.table
-        write.table(subActWiseMeanData,&quot;sub_act_mean_data.txt&quot;,row.names=FALSE)
 
         #Getthe feature names in the tidy table
         names(subActWiseMeanData)</code></pre>
